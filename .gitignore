@@ -1,0 +1,10 @@
+### AL ###
+#Template for AL projects for Dynamics 365 Business Central
+#launch.json folder
+.vscode/
+#Cache folder
+__pycache__/
+#Testing Output folder
+.output/
+**/*.csv
+**/*.txt
