@@ -4,6 +4,10 @@
 .vscode/
 #Cache folder
 __pycache__/
+data_input/
+data_output/
+appl_params/
+databases/
 #Testing Output folder
 .output/
 **/*.csv

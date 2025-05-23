@@ -1,39 +1,37 @@
 import matplotlib.pyplot as plt
-import pandas as pd
+import matplotlib.dates as mdates
+from datetime import datetime
 import numpy as np
 
-# Example DataFrame
-data = {
-    "Start Date": ["2025-05-01", "2025-05-08", "2025-05-15", "2025-05-22"],
-    "Speed (km/h)": [12, 10, 8, 6],  # Speed in km/h
-}
-df = pd.DataFrame(data)
-df["Start Date"] = pd.to_datetime(df["Start Date"])
+# Sample data
+dates = [datetime(2025, 5, i) for i in range(1, 11)]  # Dates from May 1 to May 10, 2025
+speed = np.linspace(5, 15, len(dates))  # Speed in km/hr (linear progression from 5 to 15)
+pace = 60 / speed  # Corresponding pace in min/km
 
-# Calculate pace from speed (pace = 60 / speed in min/km)
-df["Pace (min/km)"] = 60 / df["Speed (km/h)"]
+# Create the plot
+fig, ax = plt.subplots(figsize=(10, 6))
 
-# Plotting
-fig, ax1 = plt.subplots()
+# Plot speed over time
+ax.plot(dates, speed, 'b-', marker='o', label='Speed')
+ax.set_xlabel('Date')
 
-# Plot speed on primary y-axis
-ax1.plot(df["Start Date"], df["Speed (km/h)"], color='blue', marker='o', label="Speed (km/h)")
-ax1.set_xlabel("Start Date")
-ax1.set_ylabel("Speed (km/h)", color='blue')
-ax1.tick_params(axis='y', labelcolor='blue')
-ax1.legend(loc="upper left")
-ax1.grid()
+# Custom y-axis ticks and labels in "speed-pace" format
+ticks = np.linspace(5, 15, 10)  # Speed ticks from 5 to 15
+labels = [f"{int(tick)}-{round(60 / tick, 1)}" for tick in ticks]  # Speed-pace labels
+ax.set_yticks(ticks)
+ax.set_yticklabels(labels)
+ax.set_ylabel('Speed (km/hr) - Pace (min/km)', color='b')
+ax.tick_params(axis='y', labelcolor='b')
 
-# Secondary y-axis for pace
-ax2 = ax1.twinx()
-ax2.plot(df["Start Date"], df["Pace (min/km)"], color='orange', marker='s', label="Pace (min/km)")
-ax2.set_ylabel("Pace (min/km)", color='orange')
-ax2.tick_params(axis='y', labelcolor='orange')
-ax2.legend(loc="upper right")
-
-# Rotate x-axis labels
+# Format x-axis
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
 plt.xticks(rotation=45)
 
-plt.title("Speed and Pace Over Time")
+# Add grid and title
+plt.title('Speed and Pace Over Time')
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+# Show the plot
 plt.tight_layout()
 plt.show()
