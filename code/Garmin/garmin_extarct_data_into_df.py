@@ -6,6 +6,67 @@ from matplotlib.ticker import FuncFormatter
 import time
 from datetime import datetime
 import os
+import json
+import shutil
+import tkinter as tk
+
+def get_activities_count(default_activities_count):
+	num = 0
+	def submit():
+		nonlocal num
+		num = entry.get()  # Retrieve input
+		root.destroy()
+
+	def stop_program():
+		nonlocal num
+		num = 0
+		root.destroy()
+
+	def close_with_escape(event=None):
+		nonlocal num  # Access the enclosing scope's variable
+		num = 0
+		root.destroy()  # Close the window	
+
+	def clear_entry_on_focus(event):
+		if entry.get() == default_activities_count:
+			entry.delete(0, tk.END)  # Clear the entry
+
+#-------- Main of function -------
+	default_activities_count = str(default_activities_count)
+	root = tk.Tk()
+	root.geometry('600x250')
+	root.title(f'Set How Many Activities to Extract')
+	# Bind Escape key to close the window
+	root.bind("<Escape>", close_with_escape)
+	# set up ui
+	font_size = 10
+	btn_width = 17
+	current_row = 3
+	#root.bind_escape()		
+	root.columnconfigure(1, weight=1) 
+
+	# Labels
+	file_name_lable = tk.Label(root, text=f'Number of Activities to Extract:', font=("Arial", font_size))
+	file_name_lable.grid(row=current_row, column=0, sticky=tk.NW, pady=(0, 0), padx=(5, 0))
+	# text box for insert a number
+	current_row += 1
+	entry = tk.Entry(root)
+	entry.grid(row=current_row, column=0, sticky=tk.NW, pady=(10, 5), padx=(5, 0))
+	entry.insert(0, default_activities_count)
+	entry.bind("<FocusIn>", clear_entry_on_focus)  # Bind focus event to clear default value
+
+	current_row += 1
+	# Buttons
+	submit_btn = tk.Button(root, text='Submit', command=submit, width=btn_width, bg='light gray')
+	submit_btn.grid(row=current_row, column=0, sticky=tk.NW, pady=(10, 5), padx=(5, 0))
+	current_row += 1
+
+	stop_btn = tk.Button(root, text='Abort Program', command=stop_program, width=btn_width, bg='light gray')
+	stop_btn.grid(row=current_row, column=0, sticky=tk.NW, pady=(0, 5), padx=(5, 0))
+
+	root.mainloop()
+	return num
+
 
 def build_data_df(one_line: dict, data_df):
 	if not data_df.empty:
@@ -15,10 +76,13 @@ def build_data_df(one_line: dict, data_df):
 	return data_df
 
 def convert_speed2pace(speed):
-	pace_seconds = 1000 / speed
-	minutes = int(pace_seconds // 60)
-	seconds = int(pace_seconds % 60)
-	return f"{minutes:02}:{seconds:02}"
+	if speed != 0:
+		pace_seconds = 1000 / speed
+		minutes = int(pace_seconds // 60)
+		seconds = int(pace_seconds % 60)
+		return f"{minutes:02}:{seconds:02}"
+	else:
+		return "20:00"
 
 def draw_plot(garmin_df):
 	df_intervals = garmin_df[garmin_df['no intervals ind'] == 0]
@@ -49,20 +113,35 @@ def draw_plot(garmin_df):
 	plt.title("Speed and Pace Over Time")
 
 	plt.tight_layout()
-	plt.show()
+	plt.savefig(garmin_activities_plot)  # Saves as PNG
+	print(f'Plot is saved into: {garmin_activities_plot}')
+	#plt.show()
 
 
 #---------------- MAIN --------------------
 #-------------init-------------
-# Garmin Login details
-email = "shaull@yahoo.com"
-password = "JustDoIt01"
-activities_count = 10
+json_file_path = 'C:/_Shaul/Python/_My_Code/oper_params/garmin_oper.json'
+with open(json_file_path, 'r') as file:
+	basic_oper = json.load(file)
+
+email = basic_oper.get('email', '')
+password = basic_oper.get('password', '')
+default_activities_count = basic_oper.get('default_activities_count')
 date_time = end_time = time.time()
 date_stamp = datetime.fromtimestamp(end_time).strftime('%y%m%d-%H%M%S')
-output_trans_file = 'C:/_Shaul/Python/_My_Code/data_output/garmin_activities_last_run_transactions_' + date_stamp + '.xlsx'
-garmin_db_file_name = 'C:/_Shaul/Python/_My_Code/data_output/garmin_activities_db.xlsx'
-garmin_incremental_extract_file_name = 'C:/_Shaul/Python/_My_Code/data_output/garmin_activities_incremental_extract_' + date_stamp + '.xlsx'
+output_trans_file = basic_oper.get('output_trans_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
+garmin_incremental_extract_file_name = basic_oper.get('garmin_incremental_extract_file_name', '').replace('<yyymmdd-hhmmss>', date_stamp)
+garmin_db_file_name = basic_oper.get('garmin_db_file_name')
+garmin_activities_plot = basic_oper.get('garmin_activities_plot')
+del basic_oper
+
+activities_count = get_activities_count(default_activities_count)
+activities_count = int(activities_count)
+print('activities_count:', activities_count)
+if activities_count == 0:
+	print(f'User has set the number of activities to extarct ()"activities_count") to {activities_count} - Aborting')
+	exit(0)
+
 
 data_df = pd.DataFrame(None)
 
@@ -134,6 +213,10 @@ data_df_grp['start date 2'] = data_df_grp['start date 2'].dt.date
 
 
 #------------ Merge new data with local excel (local "database")
+# First backup current db:
+backup_file_name, suffix = os.path.splitext(garmin_db_file_name)
+backup_file_name = backup_file_name + '_' + date_stamp + suffix
+shutil.copy2(garmin_db_file_name, backup_file_name)
 if os.path.exists(garmin_db_file_name):
 	current_garmin_db_df = pd.read_excel(garmin_db_file_name)
 	current_garmin_db_df['start date 2'] = pd.to_datetime(current_garmin_db_df['start date 2'], errors='coerce')

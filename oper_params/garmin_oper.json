@@ -1,0 +1,8 @@
+{"email": "shaull@yahoo.com",
+"password": "JustDoIt01",
+"default_activities_count": 10,
+"output_trans_file": "C:/_Shaul/Python/_My_Code/data_output/garmin_activities_last_run_transactions_<yyymmdd-hhmmss>.xlsx",
+"garmin_db_file_name": "C:/_Shaul/Python/_My_Code/databases/garmin_activities_db.xlsx",
+"garmin_incremental_extract_file_name": "C:/_Shaul/Python/_My_Code/data_output/garmin_activities_incremental_extract_<yyymmdd-hhmmss>.xlsx",
+"garmin_activities_plot": "C:/_Shaul/Python/_My_Code/data_output/garmin_activities_plot.png"
+}
