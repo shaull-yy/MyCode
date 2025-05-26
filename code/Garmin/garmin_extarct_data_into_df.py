@@ -9,22 +9,27 @@ import os
 import json
 import shutil
 import tkinter as tk
+from tkinter import StringVar
 
 def get_activities_count(default_activities_count):
 	num = 0
+	upd_db = ''
 	def submit():
-		nonlocal num
+		nonlocal num, upd_db
 		num = entry.get()  # Retrieve input
+		upd_db = upd_db_radio_var.get()
 		root.destroy()
 
 	def stop_program():
-		nonlocal num
+		nonlocal num, upd_db
 		num = 0
+		upd_db = ''
 		root.destroy()
 
 	def close_with_escape(event=None):
-		nonlocal num  # Access the enclosing scope's variable
+		nonlocal num, upd_db  # Access the enclosing scope's variable
 		num = 0
+		upd_db = ''
 		root.destroy()  # Close the window	
 
 	def clear_entry_on_focus(event):
@@ -44,6 +49,7 @@ def get_activities_count(default_activities_count):
 	current_row = 3
 	#root.bind_escape()		
 	root.columnconfigure(1, weight=1) 
+	upd_db_radio_var = StringVar(value="yes")
 
 	# Labels
 	file_name_lable = tk.Label(root, text=f'Number of Activities to Extract:', font=("Arial", font_size))
@@ -56,6 +62,7 @@ def get_activities_count(default_activities_count):
 	entry.bind("<FocusIn>", clear_entry_on_focus)  # Bind focus event to clear default value
 
 	current_row += 1
+	radio_btn_row = current_row
 	# Buttons
 	submit_btn = tk.Button(root, text='Submit', command=submit, width=btn_width, bg='light gray')
 	submit_btn.grid(row=current_row, column=0, sticky=tk.NW, pady=(10, 5), padx=(5, 0))
@@ -64,8 +71,14 @@ def get_activities_count(default_activities_count):
 	stop_btn = tk.Button(root, text='Abort Program', command=stop_program, width=btn_width, bg='light gray')
 	stop_btn.grid(row=current_row, column=0, sticky=tk.NW, pady=(0, 5), padx=(5, 0))
 
+	radio_btn1 = tk.Radiobutton(root, text='Dont UPD Garmin DB (Tests)', variable=upd_db_radio_var, value='no')
+	radio_btn1.grid(row=radio_btn_row, column=1,sticky=tk.NW, pady=(0, 5), padx=(5, 0))
+	radio_btn_row +=1
+	radio_btn2 = tk.Radiobutton(root, text='UPD Garmin DB', variable=upd_db_radio_var, value='yes')
+	radio_btn2.grid(row=radio_btn_row, column=1,sticky=tk.NW, pady=(0, 5), padx=(5, 0))
+
 	root.mainloop()
-	return num
+	return num, upd_db 
 
 
 def build_data_df(one_line: dict, data_df):
@@ -135,9 +148,10 @@ garmin_db_file_name = basic_oper.get('garmin_db_file_name')
 garmin_activities_plot = basic_oper.get('garmin_activities_plot')
 del basic_oper
 
-activities_count = get_activities_count(default_activities_count)
+activities_count, upd_garmin_db = get_activities_count(default_activities_count)
 activities_count = int(activities_count)
 print('activities_count:', activities_count)
+print('Update Garmin DB IND:', upd_garmin_db)
 if activities_count == 0:
 	print(f'User has set the number of activities to extarct ()"activities_count") to {activities_count} - Aborting')
 	exit(0)
@@ -178,7 +192,12 @@ for activity in activities:
 				"distance": split["distance"],
 				"duration": split["duration"],
 				"elevationGain": split.get("elevationGain", 0),  # Default to 0 if not present
-				"averageSpeed": split.get("averageSpeed", 0)
+				"averageSpeed": split.get("averageSpeed", 0),
+				"distance": split.get("distance",0),
+				"averageHR": split.get("averageHR", 0),
+				"averageRunCadence": split.get("averageRunCadence", 0),
+				"strideLength": split.get("strideLength", 0),
+				"maxDistance": split.get("maxDistance", 0)
 			}
 			data_df = build_data_df(split_info, data_df)
 	else:
@@ -187,12 +206,17 @@ for activity in activities:
 				"Activity ID": activity_id,
 				"activity name": activity_name,
 				"start date": start_date,
-				"splitType": None,
-				"Split Number": None,
-				"distance": activity["distance"],
-				"duration": activity["duration"],
-				"elevationGain": split.get("elevationGain", 0),  # Default to 0 if not present
-				"averageSpeed": split.get("averageSpeed", 0)
+				"splitType": 0,
+				"Split Number": 0,
+				"distance": activity.get("distance",0),
+				"duration": activity.get("duration",0),
+				"elevationGain": activity.get("elevationGain", 0),  # Default to 0 if not present
+				"averageSpeed": activity.get("averageSpeed", 0),
+				"distance": activity.get("distance",0),
+				"averageHR": activity.get("averageHR", 0),
+				"averageRunCadence": 0,
+				"strideLength": 0,
+				"maxDistance": 0
 			}
 		data_df = build_data_df(split_info, data_df)
 
@@ -201,7 +225,12 @@ for activity in activities:
 #print(data_df)
 data_df_grp = data_df.groupby(["Activity ID","activity name","start date", "splitType"]).agg(
 	avg_speed = ('averageSpeed', 'mean'),
-	interval_count= ('Activity ID', 'count')
+	interval_count= ('Activity ID', 'count'),
+	distance=('distance', 'sum'),
+	elevationGain=('elevationGain', 'sum'),
+	averageHR=('averageHR', 'mean'),
+	averageRunCadence=('averageRunCadence', 'mean'),
+	averageStrideLength=('strideLength', 'mean')
 ).reset_index()
 data_df_grp = data_df_grp[data_df_grp['splitType'] == 'RWD_RUN']
 data_df_grp['avg speed km/hr'] = data_df_grp['avg_speed'] * 3600 / 1000
@@ -213,28 +242,31 @@ data_df_grp['start date 2'] = data_df_grp['start date 2'].dt.date
 
 
 #------------ Merge new data with local excel (local "database")
-# First backup current db:
-backup_file_name, suffix = os.path.splitext(garmin_db_file_name)
-backup_file_name = backup_file_name + '_' + date_stamp + suffix
-shutil.copy2(garmin_db_file_name, backup_file_name)
-if os.path.exists(garmin_db_file_name):
-	current_garmin_db_df = pd.read_excel(garmin_db_file_name)
-	current_garmin_db_df['start date 2'] = pd.to_datetime(current_garmin_db_df['start date 2'], errors='coerce')
-	current_garmin_db_df['start date 2'] = current_garmin_db_df['start date 2'].dt.date
-	new_garmin_db_df = pd.concat([current_garmin_db_df, data_df_grp]).drop_duplicates(['Activity ID', 'activity name'])
-	new_garmin_db_df = new_garmin_db_df.sort_values(by='start date 2')
-	new_garmin_db_df.to_excel(garmin_db_file_name, index=False)
-	current_garmin_db_df_exists = True
-else:
-	print('>> Warning/Error: There is no Garmin permenant DB excel file')
-	print('>> A new excel DB is created from the "data_df_grp" dataframe')
-	data_df_grp.to_excel(garmin_db_file_name, index=False)
-	current_garmin_db_df_exists = False
+#work_with_trans_only = input('\n>>Enter 0 for updating the garmin db \n>> Enter any char to generate trans file only')
+current_garmin_db_df_exists = False
+if upd_garmin_db == 'yes':
+	# First backup current db:
+	backup_file_name, suffix = os.path.splitext(garmin_db_file_name)
+	backup_file_name = backup_file_name + '_' + date_stamp + suffix
+	if os.path.exists(garmin_db_file_name):
+		shutil.copy2(garmin_db_file_name, backup_file_name)
+		current_garmin_db_df = pd.read_excel(garmin_db_file_name)
+		current_garmin_db_df['start date 2'] = pd.to_datetime(current_garmin_db_df['start date 2'], errors='coerce')
+		current_garmin_db_df['start date 2'] = current_garmin_db_df['start date 2'].dt.date
+		new_garmin_db_df = pd.concat([current_garmin_db_df, data_df_grp]).drop_duplicates(['Activity ID', 'activity name'])
+		new_garmin_db_df = new_garmin_db_df.sort_values(by='start date 2')
+		new_garmin_db_df.to_excel(garmin_db_file_name, index=False)
+		current_garmin_db_df_exists = True
+	else:
+		print('>> Warning/Error: There is no Garmin permenant DB excel file')
+		print('>> A new excel DB is created from the "data_df_grp" dataframe')
+		data_df_grp.to_excel(garmin_db_file_name, index=False)
+		#current_garmin_db_df_exists = False
 
-if current_garmin_db_df_exists:
-	draw_plot(new_garmin_db_df)
-else:
-	draw_plot(data_df_grp)
+	if current_garmin_db_df_exists:
+		draw_plot(new_garmin_db_df)
+	else:
+		draw_plot(data_df_grp)
 
 #Keep files from this run
 data_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
