@@ -81,12 +81,12 @@ def get_activities_count(default_activities_count):
 	return num, upd_db 
 
 
-def build_data_df(one_line: dict, data_df):
-	if not data_df.empty:
-		data_df = pd.concat([data_df, pd.DataFrame([one_line])], ignore_index=True)
+def build_data_df(one_line: dict, split_level_df):
+	if not split_level_df.empty:
+		split_level_df = pd.concat([split_level_df, pd.DataFrame([one_line])], ignore_index=True)
 	else:
-		data_df = pd.DataFrame([one_line])  # Initialize with the first row
-	return data_df
+		split_level_df = pd.DataFrame([one_line])  # Initialize with the first row
+	return split_level_df
 
 def convert_speed2pace(speed):
 	if speed != 0:
@@ -130,54 +130,27 @@ def draw_plot(garmin_df):
 	print(f'Plot is saved into: {garmin_activities_plot}')
 	#plt.show()
 
-
-#---------------- MAIN --------------------
-#-------------init-------------
-json_file_path = 'C:/_Shaul/Python/_My_Code/oper_params/garmin_oper.json'
-with open(json_file_path, 'r') as file:
-	basic_oper = json.load(file)
-
-email = basic_oper.get('email', '')
-password = basic_oper.get('password', '')
-default_activities_count = basic_oper.get('default_activities_count')
-date_time = end_time = time.time()
-date_stamp = datetime.fromtimestamp(end_time).strftime('%y%m%d-%H%M%S')
-output_trans_file = basic_oper.get('output_trans_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
-garmin_incremental_extract_file_name = basic_oper.get('garmin_incremental_extract_file_name', '').replace('<yyymmdd-hhmmss>', date_stamp)
-garmin_db_file_name = basic_oper.get('garmin_db_file_name')
-garmin_activities_plot = basic_oper.get('garmin_activities_plot')
-del basic_oper
-
-activities_count, upd_garmin_db = get_activities_count(default_activities_count)
-activities_count = int(activities_count)
-print('activities_count:', activities_count)
-print('Update Garmin DB IND:', upd_garmin_db)
-if activities_count == 0:
-	print(f'User has set the number of activities to extarct ()"activities_count") to {activities_count} - Aborting')
-	exit(0)
-
-
-data_df = pd.DataFrame(None)
-
-#-------------END Init ------------
-
-# Login to Garmin Connect
-try:
-	client = Garmin(email, password)
-	client.login()
-	print("Logged in successfully!")
-except Exception as e:
-	print(f"Fatal Error - Aborting, Failed to log-in. Error Details: {e}")
-	exit(1)
-
-# Fetch recent activities
-activities = client.get_activities(0, activities_count)  # Retrieve the last X activities
-
-# Iterate over activities
-for activity in activities:
+def upd_split_info(activity, split_level_df, activ_level_df):
 	activity_id = activity["activityId"]
 	activity_name = activity['activityName']
 	start_date = activity.get("startTimeLocal", 0)
+	
+	activ_level_info = {
+		'activity_id': activity_id,
+		'activity_name': activity_name,
+		'start_date': start_date,
+		'activity_type': activity.get("activityType", 0),
+		'distance': activity.get("distance", 0),
+		'duration': activity.get("duration", 0),
+		'average_peed': activity.get("averageSpeed", 0),
+		'average_hr': activity.get("averageHR", 0),
+		'avg_stride_length': activity.get("avgStrideLength", 0)
+	}
+	if not activ_level_df.empty:
+		activ_level_df = pd.concat([activ_level_df, pd.DataFrame([activ_level_info])], ignore_index=True)
+	else:
+		activ_level_df = pd.DataFrame([activ_level_info])  # Initialize with the first row
+
 	details = client.get_activity(activity_id)
 	# Check if splits exist in the activity
 	if "splitSummaries" in details:
@@ -199,7 +172,7 @@ for activity in activities:
 				"strideLength": split.get("strideLength", 0),
 				"maxDistance": split.get("maxDistance", 0)
 			}
-			data_df = build_data_df(split_info, data_df)
+			split_level_df = build_data_df(split_info, split_level_df)
 	else:
 		# Handle activities with no splits
 		split_info = {
@@ -218,12 +191,60 @@ for activity in activities:
 				"strideLength": 0,
 				"maxDistance": 0
 			}
-		data_df = build_data_df(split_info, data_df)
+		split_level_df = build_data_df(split_info, split_level_df)
+
+	return split_level_df, activ_level_df
+
+#---------------- MAIN --------------------
+#-------------init-------------
+json_file_path = 'C:/_Shaul/Projects/_My_Code/oper_params/garmin_oper.json'
+with open(json_file_path, 'r') as file:
+	basic_oper = json.load(file)
+
+email = basic_oper.get('email', '')
+password = basic_oper.get('password', '')
+default_activities_count = basic_oper.get('default_activities_count')
+date_time = end_time = time.time()
+date_stamp = datetime.fromtimestamp(end_time).strftime('%y%m%d-%H%M%S')
+output_trans_file = basic_oper.get('output_trans_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
+garmin_incremental_extract_file_name = basic_oper.get('garmin_incremental_extract_file_name', '').replace('<yyymmdd-hhmmss>', date_stamp)
+garmin_split_db_file_name = basic_oper.get('garmin_split_db_file_name')
+output_activ_level_trans_file = basic_oper.get('output_activ_level_trans_file').replace('<yyymmdd-hhmmss>', date_stamp)
+garmin_activ_db_file_name = basic_oper.get('garmin_activ_db_file_name')
+garmin_activities_plot = basic_oper.get('garmin_activities_plot')
+del basic_oper
+
+activities_count, upd_garmin_db = get_activities_count(default_activities_count)
+activities_count = int(activities_count)
+print('activities_count:', activities_count)
+print('Update Garmin DB IND:', upd_garmin_db)
+if activities_count == 0:
+	print(f'User has set the number of activities to extarct ()"activities_count") to {activities_count} - Aborting')
+	exit(0)
 
 
-#print('---------data_df----------')
-#print(data_df)
-data_df_grp = data_df.groupby(["Activity ID","activity name","start date", "splitType"]).agg(
+split_level_df = pd.DataFrame(None)
+activ_level_df = pd.DataFrame(None)
+
+#-------------END Init ------------
+
+# Login to Garmin Connect
+try:
+	client = Garmin(email, password)
+	client.login()
+	print("Logged in successfully!")
+except Exception as e:
+	print(f"Fatal Error - Aborting, Failed to log-in. Error Details: {e}")
+	exit(1)
+
+# Fetch recent activities
+activities = client.get_activities(0, activities_count)  # Retrieve the last X activities
+
+# Iterate over activities, create the split_level_df data frame
+for activity in activities:
+	split_level_df, activ_level_df = upd_split_info(activity, split_level_df, activ_level_df)
+
+data_df_grp = split_level_df.groupby(["Activity ID","activity name","start date", "splitType"]).agg(
 	avg_speed = ('averageSpeed', 'mean'),
 	interval_count= ('Activity ID', 'count'),
 	distance=('distance', 'sum'),
@@ -246,21 +267,24 @@ data_df_grp['start date 2'] = data_df_grp['start date 2'].dt.date
 current_garmin_db_df_exists = False
 if upd_garmin_db == 'yes':
 	# First backup current db:
-	backup_file_name, suffix = os.path.splitext(garmin_db_file_name)
-	backup_file_name = backup_file_name + '_' + date_stamp + suffix
-	if os.path.exists(garmin_db_file_name):
-		shutil.copy2(garmin_db_file_name, backup_file_name)
-		current_garmin_db_df = pd.read_excel(garmin_db_file_name)
+
+	file_path = os.path.dirname(garmin_split_db_file_name)  # Extracts the directory path
+	file_name, suffix = os.path.splitext(os.path.basename(garmin_split_db_file_name))
+	#backup_file_name, suffix = os.path.splitext(garmin_split_db_file_name)
+	backup_file_name = file_path + '/bck_' + file_name + '_' + date_stamp + suffix
+	if os.path.exists(garmin_split_db_file_name):
+		shutil.copy2(garmin_split_db_file_name, backup_file_name)
+		current_garmin_db_df = pd.read_excel(garmin_split_db_file_name)
 		current_garmin_db_df['start date 2'] = pd.to_datetime(current_garmin_db_df['start date 2'], errors='coerce')
 		current_garmin_db_df['start date 2'] = current_garmin_db_df['start date 2'].dt.date
 		new_garmin_db_df = pd.concat([current_garmin_db_df, data_df_grp]).drop_duplicates(['Activity ID', 'activity name'])
 		new_garmin_db_df = new_garmin_db_df.sort_values(by='start date 2')
-		new_garmin_db_df.to_excel(garmin_db_file_name, index=False)
+		new_garmin_db_df.to_excel(garmin_split_db_file_name, index=False)
 		current_garmin_db_df_exists = True
 	else:
 		print('>> Warning/Error: There is no Garmin permenant DB excel file')
 		print('>> A new excel DB is created from the "data_df_grp" dataframe')
-		data_df_grp.to_excel(garmin_db_file_name, index=False)
+		data_df_grp.to_excel(garmin_split_db_file_name, index=False)
 		#current_garmin_db_df_exists = False
 
 	if current_garmin_db_df_exists:
@@ -270,14 +294,20 @@ if upd_garmin_db == 'yes':
 
 #Keep files from this run
 data_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
-data_df.to_excel(output_trans_file, index=False)
+split_level_df.to_excel(output_trans_file, index=False)
+activ_level_df.to_excel(output_activ_level_trans_file, index=False)
 
 print('====== program Ended Successfully ========')
+if upd_garmin_db == 'yes':
+	print('-- Running in "DB update mode"')
+else:
+	print('-- Running in "No DB update mode" (test mode)')
 print(f'Extracted number of rows from Garmin site: {len(data_df_grp)}')
 if current_garmin_db_df_exists:
 	print(f'Number of rows from excel DB (before adding extracted data): {len(current_garmin_db_df)}')
 	print(f'Number of rows in final excel DB (after adding extracted data & remove duplicates): {len(new_garmin_db_df)}')
 	print(f'Number of rows added to the final excel DB: {len(new_garmin_db_df) - len(current_garmin_db_df)}')
 else:
-	print(f'Number of rows from excel DB (before adding extracted data): 0 (excel db does not exist)')
-	print(f'Number of rows in final excel DB (created from scratch): {len(data_df_grp)}')
+	print(f'Number of rows from excel DB (before adding extracted data): 0 (excel db does not exist or running in ""test"" mode)')
+	if upd_garmin_db == 'yes':
+		print(f'Number of rows in final excel DB (created from scratch): {len(data_df_grp)}')
