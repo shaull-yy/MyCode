@@ -195,6 +195,34 @@ def upd_split_info(activity, split_level_df, activ_level_df):
 
 	return split_level_df, activ_level_df
 
+def handle_garmin_db(db_file_name, db_df, db_name_for_msg):
+	file_path = os.path.dirname(db_file_name)  # Extracts the directory path
+	file_name, suffix = os.path.splitext(os.path.basename(db_file_name))
+	backup_file_name = file_path + '/bck_' + file_name + '_' + date_stamp + suffix
+	if os.path.exists(db_file_name):
+		shutil.copy2(db_file_name, backup_file_name)
+		current_garmin_db_df = pd.read_excel(db_file_name)
+		new_garmin_db_df = pd.concat([current_garmin_db_df, db_df]).drop_duplicates(['Activity ID', 'activity name'])
+		new_garmin_db_df['start date 2'] = pd.to_datetime(new_garmin_db_df['start date 2'], errors='coerce')
+		new_garmin_db_df['start date 2'] = new_garmin_db_df['start date 2'].dt.date
+		#print(new_garmin_db_df)
+		new_garmin_db_df = new_garmin_db_df.sort_values(by='start date 2')
+		new_garmin_db_df.to_excel(db_file_name, index=False)
+		current_garmin_db_len = len(current_garmin_db_df)
+		new_garmin_db_len = len(new_garmin_db_df)
+		current_garmin_db_df_exists = True
+	else:
+		print(f'>> Warning/Error: There is no Garmin permenant DB excel file for {db_name_for_msg}')
+		print(f'>> A new excel DB is created from the {db_name_for_msg} dataframe')
+		db_df.to_excel(db_file_name, index=False)
+		current_garmin_db_len = 0
+		new_garmin_db_len = len(db_df)
+		current_garmin_db_df_exists = False
+	
+	db_df_len = len(db_df)	
+	return current_garmin_db_df_exists, db_df_len, current_garmin_db_len, new_garmin_db_len
+
+
 #---------------- MAIN --------------------
 #-------------init-------------
 json_file_path = 'C:/_Shaul/Projects/_My_Code/oper_params/garmin_oper.json'
@@ -244,7 +272,7 @@ activities = client.get_activities(0, activities_count)  # Retrieve the last X a
 for activity in activities:
 	split_level_df, activ_level_df = upd_split_info(activity, split_level_df, activ_level_df)
 
-data_df_grp = split_level_df.groupby(["Activity ID","activity name","start date", "splitType"]).agg(
+split_level_df_grp = split_level_df.groupby(["Activity ID","activity name","start date", "splitType"]).agg(
 	avg_speed = ('averageSpeed', 'mean'),
 	interval_count= ('Activity ID', 'count'),
 	distance=('distance', 'sum'),
@@ -253,47 +281,32 @@ data_df_grp = split_level_df.groupby(["Activity ID","activity name","start date"
 	averageRunCadence=('averageRunCadence', 'mean'),
 	averageStrideLength=('strideLength', 'mean')
 ).reset_index()
-data_df_grp = data_df_grp[data_df_grp['splitType'] == 'RWD_RUN']
-data_df_grp['avg speed km/hr'] = data_df_grp['avg_speed'] * 3600 / 1000
-data_df_grp['avg pace sec'] = 60 / data_df_grp['avg speed km/hr']
-data_df_grp['avg pace'] =  data_df_grp['avg_speed'].apply(convert_speed2pace)
-data_df_grp['no intervals ind'] = data_df_grp['activity name'].str.contains('run free', case=False).astype(int)
-data_df_grp['start date 2'] = pd.to_datetime(data_df_grp['start date'], errors='coerce')
-data_df_grp['start date 2'] = data_df_grp['start date 2'].dt.date
+split_level_df_grp = split_level_df_grp[split_level_df_grp['splitType'] == 'RWD_RUN']
+split_level_df_grp['avg speed km/hr'] = split_level_df_grp['avg_speed'] * 3600 / 1000
+split_level_df_grp['avg pace sec'] = 60 / split_level_df_grp['avg speed km/hr']
+split_level_df_grp['avg pace'] =  split_level_df_grp['avg_speed'].apply(convert_speed2pace)
+split_level_df_grp['no intervals ind'] = split_level_df_grp['activity name'].str.contains('run free', case=False).astype(int)
+split_level_df_grp['start date 2'] = pd.to_datetime(split_level_df_grp['start date'], errors='coerce')
+split_level_df_grp['start date 2'] = split_level_df_grp['start date 2'].dt.date
 
 
 #------------ Merge new data with local excel (local "database")
 #work_with_trans_only = input('\n>>Enter 0 for updating the garmin db \n>> Enter any char to generate trans file only')
 current_garmin_db_df_exists = False
 if upd_garmin_db == 'yes':
-	# First backup current db:
+	(current_garmin_db_df_exists, 
+	split_level_df_grp_len, current_garmin_db_len, 
+	new_garmin_db_len
+	) = handle_garmin_db(garmin_split_db_file_name, split_level_df_grp, 'Split Data base')
 
-	file_path = os.path.dirname(garmin_split_db_file_name)  # Extracts the directory path
-	file_name, suffix = os.path.splitext(os.path.basename(garmin_split_db_file_name))
-	#backup_file_name, suffix = os.path.splitext(garmin_split_db_file_name)
-	backup_file_name = file_path + '/bck_' + file_name + '_' + date_stamp + suffix
-	if os.path.exists(garmin_split_db_file_name):
-		shutil.copy2(garmin_split_db_file_name, backup_file_name)
-		current_garmin_db_df = pd.read_excel(garmin_split_db_file_name)
-		current_garmin_db_df['start date 2'] = pd.to_datetime(current_garmin_db_df['start date 2'], errors='coerce')
-		current_garmin_db_df['start date 2'] = current_garmin_db_df['start date 2'].dt.date
-		new_garmin_db_df = pd.concat([current_garmin_db_df, data_df_grp]).drop_duplicates(['Activity ID', 'activity name'])
-		new_garmin_db_df = new_garmin_db_df.sort_values(by='start date 2')
-		new_garmin_db_df.to_excel(garmin_split_db_file_name, index=False)
-		current_garmin_db_df_exists = True
-	else:
-		print('>> Warning/Error: There is no Garmin permenant DB excel file')
-		print('>> A new excel DB is created from the "data_df_grp" dataframe')
-		data_df_grp.to_excel(garmin_split_db_file_name, index=False)
-		#current_garmin_db_df_exists = False
+print(f'----------activ_level_df---------\n{activ_level_df}')
+#	if current_garmin_db_df_exists:
+#		draw_plot(new_garmin_db_df)
+#	else:
+#		draw_plot(split_level_df_grp)
 
-	if current_garmin_db_df_exists:
-		draw_plot(new_garmin_db_df)
-	else:
-		draw_plot(data_df_grp)
-
-#Keep files from this run
-data_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
+#Keep transactions files from this run
+split_level_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
 split_level_df.to_excel(output_trans_file, index=False)
 activ_level_df.to_excel(output_activ_level_trans_file, index=False)
 
@@ -302,12 +315,12 @@ if upd_garmin_db == 'yes':
 	print('-- Running in "DB update mode"')
 else:
 	print('-- Running in "No DB update mode" (test mode)')
-print(f'Extracted number of rows from Garmin site: {len(data_df_grp)}')
+print(f'Extracted number of rows from Garmin site: {split_level_df_grp_len}')
 if current_garmin_db_df_exists:
-	print(f'Number of rows from excel DB (before adding extracted data): {len(current_garmin_db_df)}')
-	print(f'Number of rows in final excel DB (after adding extracted data & remove duplicates): {len(new_garmin_db_df)}')
-	print(f'Number of rows added to the final excel DB: {len(new_garmin_db_df) - len(current_garmin_db_df)}')
+	print(f'Number of rows from excel DB (before adding extracted data): {current_garmin_db_len}')
+	print(f'Number of rows in final excel DB (after adding extracted data & remove duplicates): {new_garmin_db_len}')
+	print(f'Number of rows added to the final excel DB: {new_garmin_db_len - current_garmin_db_len}')
 else:
 	print(f'Number of rows from excel DB (before adding extracted data): 0 (excel db does not exist or running in ""test"" mode)')
 	if upd_garmin_db == 'yes':
-		print(f'Number of rows in final excel DB (created from scratch): {len(data_df_grp)}')
+		print(f'Number of rows in final excel DB (created from scratch): {new_garmin_db_len}')
