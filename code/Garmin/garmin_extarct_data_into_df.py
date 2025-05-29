@@ -11,7 +11,7 @@ import json
 import shutil
 import tkinter as tk
 from tkinter import StringVar
-sys.path.append('C:/_Shaul/Projects/_My_Code/code/My_Utilities')
+#sys.path.append('C:/_Shaul/Projects/_My_Code/code/My_Utilities')
 from utl_my_logging import my_logging
 
 def get_activities_count(default_activities_count):
@@ -69,6 +69,8 @@ def get_activities_count(default_activities_count):
 	# Buttons
 	submit_btn = tk.Button(root, text='Submit', command=submit, width=btn_width, bg='light gray')
 	submit_btn.grid(row=current_row, column=0, sticky=tk.NW, pady=(10, 5), padx=(5, 0))
+	submit_btn.focus_set()  # Set the Submit button as the focused widget
+	root.bind("<Return>", lambda event: submit())  # Bind Enter key to the Submit button
 	current_row += 1
 
 	stop_btn = tk.Button(root, text='Abort Program', command=stop_program, width=btn_width, bg='light gray')
