@@ -31,15 +31,16 @@ class my_logging:
             txt = self.format_str_with_dots(' ', 4, 'File', 15, self.main_file_name, '.')
             self.log_file.write(txt + '\n')
             txt = time.time()
-            txt = datetime.fromtimestamp(txt).strftime('%H:%M:%S')
+            txt = datetime.fromtimestamp(txt).strftime('%d-%b-%Y %H:%M:%S')
             txt = self.format_str_with_dots(' ', 4, 'Start Time', 15, txt, '.')
             self.log_file.write(txt + '\n')
             self.upd_log_file = True
     
     def close_log_file(self):
-        self.upd_log_file = False
-        if not self.log_file.close():  # in case file is open
-            self.log_file.close()
+        if self.upd_log_file: # this means that the log file was opened
+            self.upd_log_file = False
+            if not self.log_file.close():  # making sure the file is open
+                self.log_file.close()
 
     def print_terminal_log(self, txt=''):
         print(txt)
@@ -61,25 +62,30 @@ class my_logging:
         rslt = rslt + text2
         return rslt
 
-    def print_running_statistics(self, list_of_text, list_of_Values, print_col_2_position):
+    def print_running_statistics(self, list_of_text, list_of_Values, print_col_2_position=0):
+        if print_col_2_position == 0:
+            print_col_2_position = max(len(s) for s in list_of_text) + 6
+            if print_col_2_position > 130:
+                print_col_2_position = 130
+                
         end_time = time.time()
-        formated_end_time = datetime.fromtimestamp(end_time).strftime('%H:%M:%S')
+        formated_end_time = datetime.fromtimestamp(end_time).strftime('"%d-%b-%Y %H:%M:%S"')
         run_duration_seconds = end_time - self.start_time
         run_duration = str(timedelta(seconds=int(run_duration_seconds))) # Convert to hh:mm:ss format
         tmp = formated_end_time + ' / ' + run_duration
         self.print_terminal_log()
         self.print_terminal_log(self.format_str_with_dots('=', 4, 'Running Statistics', print_col_2_position, '','='))
         for msg, val in zip(list_of_text, list_of_Values):
-            self.print_terminal_log(self.format_str_with_dots('-', 4, msg, print_col_2_position, val))
+            self.print_terminal_log(self.format_str_with_dots('-', 2, msg, print_col_2_position, val, '.'))
         self.print_terminal_log(self.format_str_with_dots(' ', 4, 'Time / Rund Duration (HH:MM:SS)', print_col_2_position, tmp, '.'))
         #self.print_terminal_log(self.format_str_with_dots('=', 4, 'End of Running Statistics', print_col_2_position, ' ', '='))
         self.print_terminal_log()
 
 
     def print_msg_statistics(self):
-        prefix_length = 35
+        prefix_length = 50
         end_time = time.time()
-        formated_end_time = datetime.fromtimestamp(end_time).strftime('%H:%M:%S')
+        formated_end_time = datetime.fromtimestamp(end_time).strftime('"%d-%b-%Y %H:%M:%S"')
         run_duration_seconds = end_time - self.start_time
         run_duration = str(timedelta(seconds=int(run_duration_seconds))) # Convert to hh:mm:ss format
         tmp = formated_end_time + ' / ' + run_duration
@@ -96,7 +102,7 @@ class my_logging:
         self.print_terminal_log()
 
     def start_program_msg(self):
-        formated_end_time = datetime.fromtimestamp(self.start_time).strftime('%H:%M:%S')
+        formated_end_time = datetime.fromtimestamp(self.start_time).strftime('"%d-%b-%Y %H:%M:%S"')
         self.print_terminal_log()
         self.print_terminal_log(self.format_str_with_dots('=', 4, 'Start Running Program', 50,' ', '='))
         self.print_terminal_log(self.format_str_with_dots(' ', 4, 'File', 15, self.main_file_name, '.'))
