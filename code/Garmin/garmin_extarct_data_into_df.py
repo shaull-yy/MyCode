@@ -6,10 +6,13 @@ from matplotlib.ticker import FuncFormatter
 import time
 from datetime import datetime
 import os
+import sys
 import json
 import shutil
 import tkinter as tk
 from tkinter import StringVar
+sys.path.append('C:/_Shaul/Projects/_My_Code/code/My_Utilities')
+from utl_my_logging import my_logging
 
 def get_activities_count(default_activities_count):
 	num = 0
@@ -136,15 +139,15 @@ def upd_split_info(activity, split_level_df, activ_level_df):
 	start_date = activity.get("startTimeLocal", 0)
 	
 	activ_level_info = {
-		'activity_id': activity_id,
-		'activity_name': activity_name,
-		'start_date': start_date,
-		'activity_type': activity.get("activityType", 0),
+		'activity id': activity_id,
+		'activity name': activity_name,
+		'start date': start_date,
+		'activity type': activity.get("activityType", 0).get('typeKey', 0),
 		'distance': activity.get("distance", 0),
 		'duration': activity.get("duration", 0),
-		'average_peed': activity.get("averageSpeed", 0),
-		'average_hr': activity.get("averageHR", 0),
-		'avg_stride_length': activity.get("avgStrideLength", 0)
+		'average speed': activity.get("averageSpeed", 0),
+		'average hr': activity.get("averageHR", 0),
+		'avg stride length': activity.get("avgStrideLength", 0)
 	}
 	if not activ_level_df.empty:
 		activ_level_df = pd.concat([activ_level_df, pd.DataFrame([activ_level_info])], ignore_index=True)
@@ -157,7 +160,7 @@ def upd_split_info(activity, split_level_df, activ_level_df):
 		for split in details["splitSummaries"]:
 			# Append each split as a row
 			split_info = {
-				"Activity ID": activity_id,
+				"activity id": activity_id,
 				"activity name": activity_name,
 				"start date": start_date,
 				"splitType": split.get("splitType", "Unknown"),
@@ -176,7 +179,7 @@ def upd_split_info(activity, split_level_df, activ_level_df):
 	else:
 		# Handle activities with no splits
 		split_info = {
-				"Activity ID": activity_id,
+				"activity id": activity_id,
 				"activity name": activity_name,
 				"start date": start_date,
 				"splitType": 0,
@@ -202,7 +205,7 @@ def handle_garmin_db(db_file_name, db_df, db_name_for_msg):
 	if os.path.exists(db_file_name):
 		shutil.copy2(db_file_name, backup_file_name)
 		current_garmin_db_df = pd.read_excel(db_file_name)
-		new_garmin_db_df = pd.concat([current_garmin_db_df, db_df]).drop_duplicates(['Activity ID', 'activity name'])
+		new_garmin_db_df = pd.concat([current_garmin_db_df, db_df]).drop_duplicates(['activity id', 'activity name'])
 		new_garmin_db_df['start date 2'] = pd.to_datetime(new_garmin_db_df['start date 2'], errors='coerce')
 		new_garmin_db_df['start date 2'] = new_garmin_db_df['start date 2'].dt.date
 		#print(new_garmin_db_df)
@@ -225,6 +228,9 @@ def handle_garmin_db(db_file_name, db_df, db_name_for_msg):
 
 #---------------- MAIN --------------------
 #-------------init-------------
+loging = my_logging(False, __file__)
+loging.start_program_msg()
+
 json_file_path = 'C:/_Shaul/Projects/_My_Code/oper_params/garmin_oper.json'
 with open(json_file_path, 'r') as file:
 	basic_oper = json.load(file)
@@ -244,11 +250,10 @@ del basic_oper
 
 activities_count, upd_garmin_db = get_activities_count(default_activities_count)
 activities_count = int(activities_count)
-print('activities_count:', activities_count)
-print('Update Garmin DB IND:', upd_garmin_db)
+loging.print_message('I',f'Number of activities to extarct from Garmin: {activities_count}')
+loging.print_message('I',f'Update Garmin DB IND: {upd_garmin_db}')
 if activities_count == 0:
-	print(f'User has set the number of activities to extarct ()"activities_count") to {activities_count} - Aborting')
-	exit(0)
+	loging.print_message('F',f'User has set the number of activities to extarct from Garmin to 0')
 
 
 split_level_df = pd.DataFrame(None)
@@ -260,10 +265,9 @@ activ_level_df = pd.DataFrame(None)
 try:
 	client = Garmin(email, password)
 	client.login()
-	print("Logged in successfully!")
+	loging.print_message('I',"Logged in to Garmin successfully")
 except Exception as e:
-	print(f"Fatal Error - Aborting, Failed to log-in. Error Details: {e}")
-	exit(1)
+	loging.print_message('F',f"Failed to log-in to Garmin. Error Details: {e}")
 
 # Fetch recent activities
 activities = client.get_activities(0, activities_count)  # Retrieve the last X activities
@@ -272,9 +276,9 @@ activities = client.get_activities(0, activities_count)  # Retrieve the last X a
 for activity in activities:
 	split_level_df, activ_level_df = upd_split_info(activity, split_level_df, activ_level_df)
 
-split_level_df_grp = split_level_df.groupby(["Activity ID","activity name","start date", "splitType"]).agg(
+split_level_df_grp = split_level_df.groupby(["activity id","activity name","start date", "splitType"]).agg(
 	avg_speed = ('averageSpeed', 'mean'),
-	interval_count= ('Activity ID', 'count'),
+	interval_count= ('activity id', 'count'),
 	distance=('distance', 'sum'),
 	elevationGain=('elevationGain', 'sum'),
 	averageHR=('averageHR', 'mean'),
@@ -289,18 +293,33 @@ split_level_df_grp['no intervals ind'] = split_level_df_grp['activity name'].str
 split_level_df_grp['start date 2'] = pd.to_datetime(split_level_df_grp['start date'], errors='coerce')
 split_level_df_grp['start date 2'] = split_level_df_grp['start date 2'].dt.date
 
+activ_level_df['start date 2'] = pd.to_datetime(activ_level_df['start date'], errors='coerce')
+activ_level_df['start date 2'] = activ_level_df['start date 2'].dt.date
+activ_level_df.reset_index()
 
 #------------ Merge new data with local excel (local "database")
 #work_with_trans_only = input('\n>>Enter 0 for updating the garmin db \n>> Enter any char to generate trans file only')
-current_garmin_db_df_exists = False
 if upd_garmin_db == 'yes':
-	(current_garmin_db_df_exists, 
-	split_level_df_grp_len, current_garmin_db_len, 
-	new_garmin_db_len
-	) = handle_garmin_db(garmin_split_db_file_name, split_level_df_grp, 'Split Data base')
+	(current_garmin_split_db_exists, 
+	split_level_df_grp_len, 
+	current_garmin_split_db_len, 
+	new_garmin_split_db_len
+	) = handle_garmin_db(garmin_split_db_file_name, split_level_df_grp, 'Split Level Data base')
 
-print(f'----------activ_level_df---------\n{activ_level_df}')
-#	if current_garmin_db_df_exists:
+	(current_garmin_activ_db_df_exists, 
+	activ_level_df_len, 
+	current_garmin_activ_db_len, 
+	new_garmin_activ_db_len
+	) = handle_garmin_db(garmin_activ_db_file_name, activ_level_df, 'Active Level Data base')
+else:
+	current_garmin_split_db_len = 0
+	split_level_df_grp_len = 0
+	activ_level_df_len = 0
+	current_garmin_activ_db_len = 0
+	new_garmin_activ_db_len = 0
+	new_garmin_split_db_len = 0
+
+#	if current_garmin_split_db_exists:
 #		draw_plot(new_garmin_db_df)
 #	else:
 #		draw_plot(split_level_df_grp)
@@ -310,17 +329,27 @@ split_level_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
 split_level_df.to_excel(output_trans_file, index=False)
 activ_level_df.to_excel(output_activ_level_trans_file, index=False)
 
-print('====== program Ended Successfully ========')
-if upd_garmin_db == 'yes':
-	print('-- Running in "DB update mode"')
-else:
-	print('-- Running in "No DB update mode" (test mode)')
-print(f'Extracted number of rows from Garmin site: {split_level_df_grp_len}')
-if current_garmin_db_df_exists:
-	print(f'Number of rows from excel DB (before adding extracted data): {current_garmin_db_len}')
-	print(f'Number of rows in final excel DB (after adding extracted data & remove duplicates): {new_garmin_db_len}')
-	print(f'Number of rows added to the final excel DB: {new_garmin_db_len - current_garmin_db_len}')
-else:
-	print(f'Number of rows from excel DB (before adding extracted data): 0 (excel db does not exist or running in ""test"" mode)')
-	if upd_garmin_db == 'yes':
-		print(f'Number of rows in final excel DB (created from scratch): {new_garmin_db_len}')
+
+
+msg_txt = ['Running Mode - Update Garmin Databases ("no" is Test Mode)',
+		   'Split Transactions - Number of rows extracted from Garmin site',
+		   'Split DB - Number of rows from DB excel (before adding extracted new data)',
+		   'Split DB - Number of rows in final DB excel (after adding extracted data & remove duplicates)',
+		   'Split DB - Number of rows added to the DB excel',
+		   'Activity Transactions - Number of rows extracted from Garmin site',
+		   'Activity DB - Number of rows from DB excel (before adding extracted new data)',
+		   'Activity DB - Number of rows in final DB excel (after adding extracted data & remove duplicates)',
+		   'Activity DB - Number of rows added to the DB excel'
+		   ]
+msg_numbrs = [upd_garmin_db,
+			  len(split_level_df),
+			  current_garmin_split_db_len,
+			  new_garmin_split_db_len,
+			  new_garmin_split_db_len - current_garmin_split_db_len,
+			  len(activ_level_df),
+			  current_garmin_activ_db_len,
+			  new_garmin_activ_db_len,
+			  new_garmin_activ_db_len - current_garmin_activ_db_len
+			]
+loging.print_running_statistics(msg_txt, msg_numbrs)
+loging.stop_program_msg()
