@@ -1,10 +1,11 @@
 {"email": "shaull@yahoo.com",
 "password": "JustDoIt01",
 "default_activities_count": 10,
-"output_trans_file": "C:/_Shaul/Projects/_My_Code/data_output/garmin_split_level_transactions_<yyymmdd-hhmmss>.xlsx",
-"garmin_incremental_extract_file_name": "C:/_Shaul/Projects/_My_Code/data_output/garmin_split_level_incremental_extract_<yyymmdd-hhmmss>.xlsx",
-"garmin_activities_plot": "C:/_Shaul/Projects/_My_Code/data_output/garmin_split_level_plot.png",
-"output_activ_level_trans_file": "C:/_Shaul/Projects/_My_Code/data_output/garmin_activities_level_transactions_<yyymmdd-hhmmss>.xlsx",
+"output_trans_file": "C:/_Shaul/Projects/_My_Code/data_output/garmin/garmin_split_level_transactions_<yyymmdd-hhmmss>.xlsx",
+"garmin_incremental_extract_file_name": "C:/_Shaul/Projects/_My_Code/data_output/garmin/02_lap_run_garmin_trans_<yyymmdd-hhmmss>.xlsx",
+"garmin_activities_plot": "C:/_Shaul/Projects/_My_Code/data_output/garmin/garmin_split_level_plot.png",
+"output_activ_level_trans_file": "C:/_Shaul/Projects/_My_Code/data_output/garmin/03_activity_level_garmin_trans_<yyymmdd-hhmmss>.xlsx",
+"all_raw_transactions_file": "C:/_Shaul/Projects/_My_Code/data_output/garmin/01_all_garmin_raw_trans_<yyymmdd-hhmmss>.xlsx",
 "garmin_split_db_file_name": "C:/_Shaul/Projects/_My_Code/databases/garmin_split_level_db.xlsx",
 "garmin_activ_db_file_name": "C:/_Shaul/Projects/_My_Code/databases/garmin_activities_level_db.xlsx"
 }

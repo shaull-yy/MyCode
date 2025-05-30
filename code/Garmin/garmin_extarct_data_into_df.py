@@ -39,7 +39,7 @@ def get_activities_count(default_activities_count):
 		if entry.get() == default_activities_count:
 			entry.delete(0, tk.END)  # Clear the entry
 
-#-------- Main of function -------
+	#-------- Main part of of function -------
 	default_activities_count = str(default_activities_count)
 	root = tk.Tk()
 	root.geometry('600x250')
@@ -86,12 +86,12 @@ def get_activities_count(default_activities_count):
 	return num, upd_db 
 
 
-def build_data_df(one_line: dict, split_level_df):
-	if not split_level_df.empty:
-		split_level_df = pd.concat([split_level_df, pd.DataFrame([one_line])], ignore_index=True)
+def build_data_df(one_line: dict, all_raw_trans_df):
+	if not all_raw_trans_df.empty:
+		all_raw_trans_df = pd.concat([all_raw_trans_df, pd.DataFrame([one_line])], ignore_index=True)
 	else:
-		split_level_df = pd.DataFrame([one_line])  # Initialize with the first row
-	return split_level_df
+		all_raw_trans_df = pd.DataFrame([one_line])  # Initialize with the first row
+	return all_raw_trans_df
 
 def convert_speed2pace(speed):
 	if speed != 0:
@@ -109,8 +109,8 @@ def draw_plot(garmin_df):
 	#speed = [3,4,5,6,7,8,9,10,11,12] #np.linspace(5, 15, len(dates))  # Speed in km/hr (linear progression from 5 to 15)
 
 	fig, ax = plt.subplots(figsize=(10, 5))
-	ax.plot(df_no_intervals['start date 2'], df_no_intervals['avg speed km/hr'], label='None Interval Runs', marker='o', linestyle=':')
-	ax.plot(df_intervals['start date 2'], df_intervals['avg speed km/hr'], label='Interval runs', marker='s', linestyle=':')
+	ax.plot(df_no_intervals['start_date_2'], df_no_intervals['avg speed km/hr'], label='None Interval Runs', marker='o', linestyle=':')
+	ax.plot(df_intervals['start_date_2'], df_intervals['avg speed km/hr'], label='Interval runs', marker='s', linestyle=':')
 	# Custom y-axis ticks and labels in "speed-pace" format
 	ticks = [3,4,5,6,7,8,9,10,11,12] #np.linspace(5, 15, 10)  # Speed ticks from 5 to 15
 	labels = [f"{int(tick)}/{round(60 / tick, 1)}" for tick in ticks]  # Speed-pace labels
@@ -135,70 +135,70 @@ def draw_plot(garmin_df):
 	print(f'Plot is saved into: {garmin_activities_plot}')
 	#plt.show()
 
-def upd_split_info(activity, split_level_df, activ_level_df):
-	activity_id = activity["activityId"]
-	activity_name = activity['activityName']
-	start_date = activity.get("startTimeLocal", 0)
-	
-	activ_level_info = {
-		'activity id': activity_id,
-		'activity name': activity_name,
-		'start date': start_date,
-		'activity type': activity.get("activityType", 0).get('typeKey', 0),
-		'distance': activity.get("distance", 0),
-		'duration': activity.get("duration", 0),
-		'average speed': activity.get("averageSpeed", 0),
-		'average hr': activity.get("averageHR", 0),
-		'avg stride length': activity.get("avgStrideLength", 0)
-	}
-	if not activ_level_df.empty:
-		activ_level_df = pd.concat([activ_level_df, pd.DataFrame([activ_level_info])], ignore_index=True)
-	else:
-		activ_level_df = pd.DataFrame([activ_level_info])  # Initialize with the first row
-
+def upd_split_info(activity, all_raw_trans_df):
+	activity_id = activity.get("activityId")
+	activity_name = activity.get('activityName')
+	activity_start_date = activity.get("startTimeLocal", 0)
+	activity_type  = activity.get("activityType", 0).get("typeKey", 0)
+	activity_distance  = activity.get("distance", 0)
+	activity_duration  = activity.get("duration", 0)
+	activity_average_speed  = activity.get("averageSpeed", 0)
+	activity_average_HR  = activity.get("averageHR", 0)
+	activity_avg_stride_len  = activity.get("avgStrideLength", 0)
+		
 	details = client.get_activity(activity_id)
 	# Check if splits exist in the activity
 	if "splitSummaries" in details:
 		for split in details["splitSummaries"]:
 			# Append each split as a row
 			split_info = {
-				"activity id": activity_id,
-				"activity name": activity_name,
-				"start date": start_date,
-				"splitType": split.get("splitType", "Unknown"),
-				"Split Number": split["noOfSplits"],
-				"distance": split["distance"],
-				"duration": split["duration"],
-				"elevationGain": split.get("elevationGain", 0),  # Default to 0 if not present
-				"averageSpeed": split.get("averageSpeed", 0),
-				"distance": split.get("distance",0),
-				"averageHR": split.get("averageHR", 0),
-				"averageRunCadence": split.get("averageRunCadence", 0),
-				"strideLength": split.get("strideLength", 0),
-				"maxDistance": split.get("maxDistance", 0)
+				'activity_id': activity_id,
+				'activity_name': activity_name,
+				'activity_start_date': activity_start_date,
+				'activity_type': activity_type,
+				'activity_distance': activity_distance,
+				'activity_duration': activity_duration,
+				'activity_average_speed': activity_average_speed,
+				'activity_average_HR': activity_average_HR,
+				'activity_avg_stride_len': activity_avg_stride_len,
+				
+				"lap_type": split.get("splitType", "Unknown"),
+				"lap_split_number": split["noOfSplits"],
+				"lap_distance": split.get("distance",0),
+				"lap_duration": split["duration"],
+				"lap_elevation_gain": split.get("elevationGain", 0),  
+				"lap_average_speed": split.get("averageSpeed", 0),				
+				"lap_average_HR": split.get("averageHR", 0),
+				"lap_average_run_cadence": split.get("averageRunCadence", 0),
+				"lap_stride_length": split.get("strideLength", 0)
 			}
-			split_level_df = build_data_df(split_info, split_level_df)
+			all_raw_trans_df = build_data_df(split_info, all_raw_trans_df)
 	else:
 		# Handle activities with no splits
 		split_info = {
-				"activity id": activity_id,
-				"activity name": activity_name,
-				"start date": start_date,
-				"splitType": 0,
-				"Split Number": 0,
-				"distance": activity.get("distance",0),
-				"duration": activity.get("duration",0),
-				"elevationGain": activity.get("elevationGain", 0),  # Default to 0 if not present
-				"averageSpeed": activity.get("averageSpeed", 0),
-				"distance": activity.get("distance",0),
-				"averageHR": activity.get("averageHR", 0),
-				"averageRunCadence": 0,
-				"strideLength": 0,
-				"maxDistance": 0
+				'activity_id': activity_id,
+				'activity_name': activity_name,
+				'activity_start_date': activity_start_date,
+				'activity_type': activity_type,
+				'activity_distance': activity_distance,
+				'activity_duration': activity_duration,
+				'activity_average_speed': activity_average_speed,
+				'activity_average_HR': activity_average_HR,
+				'activity_avg_stride_len': activity_avg_stride_len,
+				
+				"lap_type": 0,
+				"lap_split_number": 0,
+				"lap_distance": 0,
+				"lap_duration": 0,
+				"lap_elevation_gain": 0,  
+				"lap_average_speed": 0,				
+				"lap_average_HR": 0,
+				"lap_average_run_cadence": 0,
+				"lap_stride_length": 0
 			}
-		split_level_df = build_data_df(split_info, split_level_df)
+		all_raw_trans_df = build_data_df(split_info, all_raw_trans_df)
 
-	return split_level_df, activ_level_df
+	return all_raw_trans_df
 
 def handle_garmin_db(db_file_name, db_df, db_name_for_msg):
 	file_path = os.path.dirname(db_file_name)  # Extracts the directory path
@@ -207,24 +207,23 @@ def handle_garmin_db(db_file_name, db_df, db_name_for_msg):
 	if os.path.exists(db_file_name):
 		shutil.copy2(db_file_name, backup_file_name)
 		current_garmin_db_df = pd.read_excel(db_file_name)
-		new_garmin_db_df = pd.concat([current_garmin_db_df, db_df]).drop_duplicates(['activity id', 'activity name'])
-		new_garmin_db_df['start date 2'] = pd.to_datetime(new_garmin_db_df['start date 2'], errors='coerce')
-		new_garmin_db_df['start date 2'] = new_garmin_db_df['start date 2'].dt.date
+		new_garmin_db_df = pd.concat([current_garmin_db_df, db_df]).drop_duplicates(['activity_id'])
+		new_garmin_db_df['start_date_2'] = pd.to_datetime(new_garmin_db_df['start_date_2'], errors='coerce')
+		new_garmin_db_df['start_date_2'] = new_garmin_db_df['start_date_2'].dt.date
 		#print(new_garmin_db_df)
-		new_garmin_db_df = new_garmin_db_df.sort_values(by='start date 2')
+		new_garmin_db_df = new_garmin_db_df.sort_values(by='start_date_2')
 		new_garmin_db_df.to_excel(db_file_name, index=False)
 		current_garmin_db_len = len(current_garmin_db_df)
 		new_garmin_db_len = len(new_garmin_db_df)
 		current_garmin_db_df_exists = True
 	else:
-		print(f'>> Warning/Error: There is no Garmin permenant DB excel file for {db_name_for_msg}')
-		print(f'>> A new excel DB is created from the {db_name_for_msg} dataframe')
+		loging.print_message('W', f'There is no Garmin permenant DB excel file for {db_name_for_msg} \n  A new excel DB is created from the {db_name_for_msg} dataframe')
 		db_df.to_excel(db_file_name, index=False)
 		current_garmin_db_len = 0
 		new_garmin_db_len = len(db_df)
 		current_garmin_db_df_exists = False
 	
-	db_df_len = len(db_df)	
+	db_df_len = len(db_df)
 	return current_garmin_db_df_exists, db_df_len, current_garmin_db_len, new_garmin_db_len
 
 
@@ -241,8 +240,9 @@ email = basic_oper.get('email', '')
 password = basic_oper.get('password', '')
 default_activities_count = basic_oper.get('default_activities_count')
 date_time = end_time = time.time()
-date_stamp = datetime.fromtimestamp(end_time).strftime('%y%m%d-%H%M%S')
+date_stamp = datetime.fromtimestamp(end_time).strftime('%y%m%d-%H%M-%S')
 output_trans_file = basic_oper.get('output_trans_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
+all_raw_transactions_file = basic_oper.get('all_raw_transactions_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
 garmin_incremental_extract_file_name = basic_oper.get('garmin_incremental_extract_file_name', '').replace('<yyymmdd-hhmmss>', date_stamp)
 garmin_split_db_file_name = basic_oper.get('garmin_split_db_file_name')
 output_activ_level_trans_file = basic_oper.get('output_activ_level_trans_file').replace('<yyymmdd-hhmmss>', date_stamp)
@@ -257,9 +257,11 @@ loging.print_message('I',f'Update Garmin DB IND: {upd_garmin_db}')
 if activities_count == 0:
 	loging.print_message('F',f'User has set the number of activities to extarct from Garmin to 0')
 
+activity_level_columns = [
+	'activity_id', 'activity_name', 'activity_start_date', 'activity_type', 'activity_distance',
+	'activity_duration', 'activity_average_speed', 'activity_average_HR', 'activity_avg_stride_len', 'start_date_2']
 
-split_level_df = pd.DataFrame(None)
-activ_level_df = pd.DataFrame(None)
+all_raw_trans_df = pd.DataFrame(None)
 
 #-------------END Init ------------
 
@@ -274,49 +276,49 @@ except Exception as e:
 # Fetch recent activities
 activities = client.get_activities(0, activities_count)  # Retrieve the last X activities
 
-# Iterate over activities, create the split_level_df data frame
+# Iterate over activities, create the all_raw_trans_df data frame
 for activity in activities:
-	split_level_df, activ_level_df = upd_split_info(activity, split_level_df, activ_level_df)
+	all_raw_trans_df = upd_split_info(activity, all_raw_trans_df)
 
-split_level_df_grp = split_level_df.groupby(["activity id","activity name","start date", "splitType"]).agg(
-	avg_speed = ('averageSpeed', 'mean'),
-	interval_count= ('activity id', 'count'),
-	distance=('distance', 'sum'),
-	elevationGain=('elevationGain', 'sum'),
-	averageHR=('averageHR', 'mean'),
-	averageRunCadence=('averageRunCadence', 'mean'),
-	averageStrideLength=('strideLength', 'mean')
+all_raw_trans_df['activity_intervals_ind'] = all_raw_trans_df['activity_name'].apply(
+	lambda x: 'No-Intervals' if 'run free' in x.lower() else 'Intervals')
+all_raw_trans_df['start_date_2'] = pd.to_datetime(all_raw_trans_df['activity_start_date'], errors='coerce')
+all_raw_trans_df['start_date_2'] = all_raw_trans_df['start_date_2'].dt.date
+run_laps_df = all_raw_trans_df[all_raw_trans_df['lap_type'] == 'RWD_RUN']
+activity_level_df = all_raw_trans_df[activity_level_columns].drop_duplicates(['activity_id'])
+
+run_laps_df_grp = run_laps_df.groupby(["activity_id","activity_name","activity_start_date", "lap_type", 
+									   "activity_intervals_ind", "start_date_2"]).agg(
+	all_laps_avg_speed = ('lap_average_speed', 'mean'),
+	interval_count= ('activity_id', 'count'),
+	all_laps_distance=('lap_distance', 'sum'),
+	all_laps_elevation_gain=('lap_elevation_gain', 'sum'),
+	all_laps_average_HR=('lap_average_HR', 'mean'),
+	all_laps_average_run_cadence=('lap_average_run_cadence', 'mean'),
+	all_laps_average_stride_length=('lap_stride_length', 'mean')
 ).reset_index()
-split_level_df_grp = split_level_df_grp[split_level_df_grp['splitType'] == 'RWD_RUN']
-split_level_df_grp['avg speed km/hr'] = split_level_df_grp['avg_speed'] * 3600 / 1000
-split_level_df_grp['avg pace sec'] = 60 / split_level_df_grp['avg speed km/hr']
-split_level_df_grp['avg pace'] =  split_level_df_grp['avg_speed'].apply(convert_speed2pace)
-split_level_df_grp['no intervals ind'] = split_level_df_grp['activity name'].str.contains('run free', case=False).astype(int)
-split_level_df_grp['start date 2'] = pd.to_datetime(split_level_df_grp['start date'], errors='coerce')
-split_level_df_grp['start date 2'] = split_level_df_grp['start date 2'].dt.date
+run_laps_df_grp['all_laps_average_speed_km/hr'] = run_laps_df_grp['all_laps_avg_speed'] * 3600 / 1000
+run_laps_df_grp['all_laps_avg_pace_sec'] = 60 / run_laps_df_grp['all_laps_average_speed_km/hr']
+run_laps_df_grp['all_laps_avg_pace'] =  run_laps_df_grp['all_laps_avg_speed'].apply(convert_speed2pace)
 
-activ_level_df['start date 2'] = pd.to_datetime(activ_level_df['start date'], errors='coerce')
-activ_level_df['start date 2'] = activ_level_df['start date 2'].dt.date
-activ_level_df.reset_index()
 
 #------------ Merge new data with local excel (local "database")
 #work_with_trans_only = input('\n>>Enter 0 for updating the garmin db \n>> Enter any char to generate trans file only')
 if upd_garmin_db == 'yes':
 	(current_garmin_split_db_exists, 
-	split_level_df_grp_len, 
+	run_laps_df_grp_len, 
 	current_garmin_split_db_len, 
 	new_garmin_split_db_len
-	) = handle_garmin_db(garmin_split_db_file_name, split_level_df_grp, 'Split Level Data base')
+	) = handle_garmin_db(garmin_split_db_file_name, run_laps_df_grp, 'Split Level Data base')
 
-	(current_garmin_activ_db_df_exists, 
-	activ_level_df_len, 
-	current_garmin_activ_db_len, 
-	new_garmin_activ_db_len
-	) = handle_garmin_db(garmin_activ_db_file_name, activ_level_df, 'Active Level Data base')
+	(current_garmin_split_db_exists, 
+		activity_level_df_len, 
+		current_garmin_activ_db_len, 
+		new_garmin_activ_db_len
+		) = handle_garmin_db(garmin_activ_db_file_name, activity_level_df, 'Activity Level Data base')
+
 else:
 	current_garmin_split_db_len = 0
-	split_level_df_grp_len = 0
-	activ_level_df_len = 0
 	current_garmin_activ_db_len = 0
 	new_garmin_activ_db_len = 0
 	new_garmin_split_db_len = 0
@@ -324,31 +326,32 @@ else:
 #	if current_garmin_split_db_exists:
 #		draw_plot(new_garmin_db_df)
 #	else:
-#		draw_plot(split_level_df_grp)
+#		draw_plot(run_laps_df_grp)
 
 #Keep transactions files from this run
-split_level_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
-split_level_df.to_excel(output_trans_file, index=False)
-activ_level_df.to_excel(output_activ_level_trans_file, index=False)
+run_laps_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
+activity_level_df.to_excel(output_activ_level_trans_file, index=False)
+#run_laps_df.to_excel(output_trans_file, index=False)
+all_raw_trans_df.to_excel(all_raw_transactions_file, index=False)
 
-
-
-msg_txt = ['Running Mode - Update Garmin Databases ("no" is Test Mode)',
-		   'Split Transactions - Number of rows extracted from Garmin site',
-		   'Split DB - Number of rows from DB excel (before adding extracted new data)',
-		   'Split DB - Number of rows in final DB excel (after adding extracted data & remove duplicates)',
-		   'Split DB - Number of rows added to the DB excel',
-		   'Activity Transactions - Number of rows extracted from Garmin site',
-		   'Activity DB - Number of rows from DB excel (before adding extracted new data)',
-		   'Activity DB - Number of rows in final DB excel (after adding extracted data & remove duplicates)',
+msg_txt = ['Running Mode - Update Garmin Databases ("no" is for Test Mode)',
+		   'All - Total raw transactions extracted from garmin site'
+		   'Laps Transactions - Number of extracted laps rows',
+		   'Lap DB - Number of rows from DB excel (before adding new data)',
+		   'Lap DB - Number of rows in final DB excel (after adding new data, no dupl)',
+		   'Lap DB - Number of rows added to the DB excel',
+		   'Activity Transactions - Number of extracted activity level rows',
+		   'Activity DB - Number of rows from DB excel (before adding new data)',
+		   'Activity DB - Number of rows in final DB excel (after adding new data, no dupl)',
 		   'Activity DB - Number of rows added to the DB excel'
 		   ]
 msg_numbrs = [upd_garmin_db,
-			  len(split_level_df),
+			  len(all_raw_trans_df),
+			  run_laps_df_grp_len,
 			  current_garmin_split_db_len,
 			  new_garmin_split_db_len,
 			  new_garmin_split_db_len - current_garmin_split_db_len,
-			  len(activ_level_df),
+			  activity_level_df_len,
 			  current_garmin_activ_db_len,
 			  new_garmin_activ_db_len,
 			  new_garmin_activ_db_len - current_garmin_activ_db_len
