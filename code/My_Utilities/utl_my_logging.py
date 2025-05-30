@@ -23,6 +23,15 @@ class my_logging:
         self.main_file_name = main_file_name
         self.log_file_name = ''
         self.upd_log_file = False
+        self.font_colors_dict = {'black': '\033[0m', 
+                            'red': '\033[31m', 
+                            'green': '\033[32m',
+                            'yellow': '\033[33m',
+                            'blue': '\033[34m',
+                            'magenta': '\033[35m',
+                            'cyan': '\033[36m'
+                            }
+        self.font_colors = self.font_colors_dict['black']
 
     def open_log_file(self, log_file_name):
         if log_file_name:
@@ -43,6 +52,7 @@ class my_logging:
                 self.log_file.close()
 
     def print_terminal_log(self, txt=''):
+        txt = self.font_colors + txt + self.font_colors_dict['black']
         print(txt)
         if self.upd_log_file:
             self.log_file.write(txt + '\n')
@@ -68,6 +78,7 @@ class my_logging:
             if print_col_2_position > 130:
                 print_col_2_position = 130
                 
+        self.font_colors = self.font_colors_dict['black']
         end_time = time.time()
         formated_end_time = datetime.fromtimestamp(end_time).strftime('"%d-%b-%Y %H:%M:%S"')
         run_duration_seconds = end_time - self.start_time
@@ -83,6 +94,7 @@ class my_logging:
 
 
     def print_msg_statistics(self):
+        self.font_colors = self.font_colors_dict['black']
         prefix_length = 50
         end_time = time.time()
         formated_end_time = datetime.fromtimestamp(end_time).strftime('"%d-%b-%Y %H:%M:%S"')
@@ -110,14 +122,17 @@ class my_logging:
         self.print_terminal_log()
 
     def stop_program_msg(self, aborting_ind='N'):
+        self.font_colors = self.font_colors_dict['black']
         self.print_terminal_log()
         self.print_terminal_log('Program Ends - Summary')
         self.print_terminal_log(self.format_str_with_dots(' ', 4, 'File', 15, self.main_file_name, '.'))
         self.print_msg_statistics()
         if aborting_ind != 'Y':
+            self.font_colors = self.font_colors_dict['green']
             self.print_terminal_log(self.format_str_with_dots('=', 4, 'Program Ended Successfully', 50,' ', '='))
             self.close_log_file()
         else:
+            self.font_colors = self.font_colors_dict['red']
             self.print_terminal_log(self.format_str_with_dots('=', 4, 'ABORTING - Program Ended Due To a FATAL Error', 50,' ', '='))
             self.close_log_file()
             sys.exit(1)
@@ -135,6 +150,7 @@ class my_logging:
         msg_prefix = ''
         msg_newline_before = False
         msg_newline_after = False
+        self.font_colors = self.font_colors_dict['black']
         
         if self.err_level == 'V':
             if self.show_validation_info == True:
@@ -153,15 +169,18 @@ class my_logging:
             msg_newline_before = True
             msg_newline_after = True
             self.errors_count +=1
+            self.font_colors = self.font_colors_dict['yellow']
         elif self.err_level == 'A':
             msg_prefix = ''
             msg_newline_before = True
             self.take_action_count += 1
+            self.font_colors = self.font_colors_dict['green']
         elif self.err_level == 'F':
             msg_newline_before = True
             msg_newline_after = True
             msg_prefix = '>>>FATAL ERROR - Aborting>>>'
             self.fatal_count += 1
+            self.font_colors = self.font_colors_dict['red']
         elif self.err_level == 'S':
             msg_prefix = '>>>Statistics'
             msg_newline_before = True
