@@ -113,7 +113,7 @@ class my_logging:
 		self.print_terminal_log()
 		self.print_terminal_log(self.format_str_with_dots('=', 4, 'Messages Statistics', prefix_length, '='))
 		self.print_terminal_log(self.format_str_with_dots('-', 4, 'Number of Error messages', prefix_length, self.errors_count))
-		self.print_terminal_log(self.format_str_with_dots('-', 4, 'Number of Warning messages', prefix_length, self.errors_count))
+		self.print_terminal_log(self.format_str_with_dots('-', 4, 'Number of Warning messages', prefix_length, self.warnings_count))
 		self.print_terminal_log(self.format_str_with_dots('-', 4, 'Number of Info messages', prefix_length, self.info_count))
 		self.print_terminal_log(self.format_str_with_dots('-', 4, 'Number of Validation messages', prefix_length, self.validation_count))
 		self.print_terminal_log(self.format_str_with_dots('-', 4, 'Number of User Take Action msg', prefix_length, self.take_action_count))
@@ -171,7 +171,7 @@ class my_logging:
 			msg_prefix = '>>>Info'
 			self.info_count +=1
 		elif self.err_level == 'W':
-			msg_prefix = '>>>Wrning'
+			msg_prefix = '>>>Warning'
 			self.warnings_count +=1
 		elif self.err_level == 'E':
 			msg_prefix = '>>>ERROR>>>'

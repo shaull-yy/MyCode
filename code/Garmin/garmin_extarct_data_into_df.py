@@ -13,6 +13,7 @@ import tkinter as tk
 from tkinter import StringVar
 #sys.path.append('C:/_Shaul/Projects/_My_Code/code/My_Utilities')
 from utl_my_logging import my_logging
+from utl_functions_01 import clean_files_keep_x_recent
 
 def get_activities_count(default_activities_count):
 	num = 0
@@ -82,8 +83,15 @@ def get_activities_count(default_activities_count):
 	radio_btn2 = tk.Radiobutton(root, text='UPD Garmin DB', variable=upd_db_radio_var, value='yes')
 	radio_btn2.grid(row=radio_btn_row, column=1,sticky=tk.NW, pady=(0, 5), padx=(5, 0))
 
+	radio_btn_row +=1
+	# Create a variable to hold the checkbox state (1 for checked, 0 for unchecked)
+	cleanup_var = tk.IntVar(value=1)  # Default value is checked (1)
+	# Add a checkbox
+	checkbox = tk.Checkbutton(root, text="Clean up files", variable=cleanup_var)
+	checkbox.grid(row=radio_btn_row, column=1,sticky=tk.NW, pady=(0, 5), padx=(5, 0))
+
 	root.mainloop()
-	return num, upd_db 
+	return num, upd_db , cleanup_var.get()
 
 
 def build_data_df(one_line: dict, all_raw_trans_df):
@@ -246,9 +254,9 @@ garmin_split_db_file_name = basic_oper.get('garmin_split_db_file_name')
 activity_level_garmin_trans_file = basic_oper.get('activity_level_garmin_trans_file').replace('<yyymmdd-hhmmss>', date_stamp)
 garmin_activ_db_file_name = basic_oper.get('garmin_activ_db_file_name')
 garmin_activities_plot = basic_oper.get('garmin_activities_plot')
-del basic_oper
+#del basic_oper
 
-activities_count, upd_garmin_db = get_activities_count(default_activities_count)
+activities_count, upd_garmin_db, clean_up_files = get_activities_count(default_activities_count)
 activities_count = int(activities_count)
 loging.print_message('I',f'Number of activities to extarct from Garmin: {activities_count}')
 loging.print_message('I',f'Update Garmin DB IND: {upd_garmin_db}')
@@ -344,6 +352,26 @@ activity_level_df.to_excel(activity_level_garmin_trans_file, index=False)
 #run_laps_df.to_excel(output_trans_file, index=False)
 all_raw_trans_df.to_excel(all_raw_transactions_file, index=False)
 
+total_del_files_count = 0
+if clean_up_files == 1:
+	loging.print_message('I', 'Starting Files Clean Up...')
+
+	clean_files = basic_oper.get('all_raw_transactions_file', '').replace('<yyymmdd-hhmmss>', '*')
+	del_files_count = clean_files_keep_x_recent('', clean_files, 10, 15)
+	total_del_files_count += del_files_count
+
+	clean_files = basic_oper.get('lap_run_garmin_trans_file', '').replace('<yyymmdd-hhmmss>', '*')
+	del_files_count = clean_files_keep_x_recent('', clean_files, 10, 15)
+	total_del_files_count += del_files_count
+
+	clean_files = basic_oper.get('activity_level_garmin_trans_file').replace('<yyymmdd-hhmmss>', '*')
+	del_files_count = clean_files_keep_x_recent('', clean_files, 10, 15)
+	total_del_files_count += del_files_count
+
+	loging.print_message('I', f'Files Clean Ended, Total Files Deleted: {total_del_files_count}')
+else:
+	loging.print_message('W', 'Files Clean Up was not requested')
+
 msg_txt = ['Running Mode - Update Garmin Databases ("no" is for Test Mode)',
 		   'All - Total raw transactions extracted from garmin site',
 		   'Laps Transactions - Number of extracted laps rows',
@@ -353,7 +381,8 @@ msg_txt = ['Running Mode - Update Garmin Databases ("no" is for Test Mode)',
 		   'Activity Transactions - Number of extracted activity level rows',
 		   'Activity DB - Number of rows from DB excel (before adding new data)',
 		   'Activity DB - Number of rows in final DB excel (after adding new data, no dupl)',
-		   'Activity DB - Number of rows added to the DB excel'
+		   'Activity DB - Number of rows added to the DB excel',
+		   'File CleanUp - Total number of deleted files'
 		   ]
 msg_numbrs = [upd_garmin_db,
 			  len(all_raw_trans_df),
@@ -364,7 +393,9 @@ msg_numbrs = [upd_garmin_db,
 			  activity_level_df_len,
 			  current_garmin_activ_db_len,
 			  new_garmin_activ_db_len,
-			  new_garmin_activ_db_len - current_garmin_activ_db_len
+			  new_garmin_activ_db_len - current_garmin_activ_db_len,
+			  total_del_files_count
 			]
+
 loging.print_running_statistics(msg_txt, msg_numbrs)
 loging.stop_program_msg()
