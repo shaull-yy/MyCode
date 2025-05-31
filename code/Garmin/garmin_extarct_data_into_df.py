@@ -223,8 +223,7 @@ def handle_garmin_db(db_file_name, db_df, db_name_for_msg):
 		new_garmin_db_len = len(db_df)
 		current_garmin_db_df_exists = False
 	
-	db_df_len = len(db_df)
-	return current_garmin_db_df_exists, db_df_len, current_garmin_db_len, new_garmin_db_len
+	return current_garmin_db_df_exists, current_garmin_db_len, new_garmin_db_len
 
 
 #---------------- MAIN --------------------
@@ -241,11 +240,10 @@ password = basic_oper.get('password', '')
 default_activities_count = basic_oper.get('default_activities_count')
 date_time = end_time = time.time()
 date_stamp = datetime.fromtimestamp(end_time).strftime('%y%m%d-%H%M-%S')
-output_trans_file = basic_oper.get('output_trans_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
 all_raw_transactions_file = basic_oper.get('all_raw_transactions_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
-garmin_incremental_extract_file_name = basic_oper.get('garmin_incremental_extract_file_name', '').replace('<yyymmdd-hhmmss>', date_stamp)
+lap_run_garmin_trans_file = basic_oper.get('lap_run_garmin_trans_file', '').replace('<yyymmdd-hhmmss>', date_stamp)
 garmin_split_db_file_name = basic_oper.get('garmin_split_db_file_name')
-output_activ_level_trans_file = basic_oper.get('output_activ_level_trans_file').replace('<yyymmdd-hhmmss>', date_stamp)
+activity_level_garmin_trans_file = basic_oper.get('activity_level_garmin_trans_file').replace('<yyymmdd-hhmmss>', date_stamp)
 garmin_activ_db_file_name = basic_oper.get('garmin_activ_db_file_name')
 garmin_activities_plot = basic_oper.get('garmin_activities_plot')
 del basic_oper
@@ -260,6 +258,7 @@ if activities_count == 0:
 activity_level_columns = [
 	'activity_id', 'activity_name', 'activity_start_date', 'activity_type', 'activity_distance',
 	'activity_duration', 'activity_average_speed', 'activity_average_HR', 'activity_avg_stride_len', 'start_date_2']
+activity_level_drop_types = ['multi_sport', 'other', 'strength_training']
 
 all_raw_trans_df = pd.DataFrame(None)
 
@@ -274,7 +273,9 @@ except Exception as e:
 	loging.print_message('F',f"Failed to log-in to Garmin. Error Details: {e}")
 
 # Fetch recent activities
+loging.print_message('I', 'Starting fetching Garmin Data')
 activities = client.get_activities(0, activities_count)  # Retrieve the last X activities
+loging.print_message('I', 'Fetching Garmin Data ended successfully')
 
 # Iterate over activities, create the all_raw_trans_df data frame
 for activity in activities:
@@ -285,8 +286,10 @@ all_raw_trans_df['activity_intervals_ind'] = all_raw_trans_df['activity_name'].a
 all_raw_trans_df['start_date_2'] = pd.to_datetime(all_raw_trans_df['activity_start_date'], errors='coerce')
 all_raw_trans_df['start_date_2'] = all_raw_trans_df['start_date_2'].dt.date
 run_laps_df = all_raw_trans_df[all_raw_trans_df['lap_type'] == 'RWD_RUN']
-activity_level_df = all_raw_trans_df[activity_level_columns].drop_duplicates(['activity_id'])
 
+
+# It seems that the grouping below is not needed, since garmin sum up all laps of same type to one split, 
+# still keeping it in case it will change in future
 run_laps_df_grp = run_laps_df.groupby(["activity_id","activity_name","activity_start_date", "lap_type", 
 									   "activity_intervals_ind", "start_date_2"]).agg(
 	all_laps_avg_speed = ('lap_average_speed', 'mean'),
@@ -301,20 +304,23 @@ run_laps_df_grp['all_laps_average_speed_km/hr'] = run_laps_df_grp['all_laps_avg_
 run_laps_df_grp['all_laps_avg_pace_sec'] = 60 / run_laps_df_grp['all_laps_average_speed_km/hr']
 run_laps_df_grp['all_laps_avg_pace'] =  run_laps_df_grp['all_laps_avg_speed'].apply(convert_speed2pace)
 
+activity_level_df = all_raw_trans_df[activity_level_columns].drop_duplicates(['activity_id'])
+activity_level_df = activity_level_df[~activity_level_df['activity_type'].isin(activity_level_drop_types)]
+activity_level_df['activity_average_speed_km/hr'] = activity_level_df['activity_average_speed'] * 3600 / 1000
+activity_level_df['activity_avg_pace_sec'] = 60 / activity_level_df['activity_average_speed_km/hr']
+activity_level_df['activity_avg_pace'] =  activity_level_df['activity_average_speed'].apply(convert_speed2pace)
 
 #------------ Merge new data with local excel (local "database")
 #work_with_trans_only = input('\n>>Enter 0 for updating the garmin db \n>> Enter any char to generate trans file only')
 if upd_garmin_db == 'yes':
 	(current_garmin_split_db_exists, 
-	run_laps_df_grp_len, 
-	current_garmin_split_db_len, 
-	new_garmin_split_db_len
+	current_garmin_split_db_len, # Number of rows in the DB b4 adding new rows
+	new_garmin_split_db_len      # Number of rows in the DB after adding new rows and removing duplicates
 	) = handle_garmin_db(garmin_split_db_file_name, run_laps_df_grp, 'Split Level Data base')
 
-	(current_garmin_split_db_exists, 
-		activity_level_df_len, 
-		current_garmin_activ_db_len, 
-		new_garmin_activ_db_len
+	(_, 
+		current_garmin_activ_db_len, # Number of rows in the DB b4 adding new rows
+		new_garmin_activ_db_len      # Number of rows in the DB after adding new rows and removing duplicates
 		) = handle_garmin_db(garmin_activ_db_file_name, activity_level_df, 'Activity Level Data base')
 
 else:
@@ -323,19 +329,23 @@ else:
 	new_garmin_activ_db_len = 0
 	new_garmin_split_db_len = 0
 
+run_laps_df_grp_len = len(run_laps_df_grp)     # Number of rows extracted and to be added to the DB
+activity_level_df_len = len(activity_level_df) # Number of rows extracted and to be added to the DB
+
+
 #	if current_garmin_split_db_exists:
 #		draw_plot(new_garmin_db_df)
 #	else:
 #		draw_plot(run_laps_df_grp)
 
 #Keep transactions files from this run
-run_laps_df_grp.to_excel(garmin_incremental_extract_file_name, index=False)
-activity_level_df.to_excel(output_activ_level_trans_file, index=False)
+run_laps_df_grp.to_excel(lap_run_garmin_trans_file, index=False)
+activity_level_df.to_excel(activity_level_garmin_trans_file, index=False)
 #run_laps_df.to_excel(output_trans_file, index=False)
 all_raw_trans_df.to_excel(all_raw_transactions_file, index=False)
 
 msg_txt = ['Running Mode - Update Garmin Databases ("no" is for Test Mode)',
-		   'All - Total raw transactions extracted from garmin site'
+		   'All - Total raw transactions extracted from garmin site',
 		   'Laps Transactions - Number of extracted laps rows',
 		   'Lap DB - Number of rows from DB excel (before adding new data)',
 		   'Lap DB - Number of rows in final DB excel (after adding new data, no dupl)',
