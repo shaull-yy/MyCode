@@ -32,13 +32,20 @@ class my_logging:
 							'cyan': '\033[36m'
 							}
 		self.font_colors = self.font_colors_dict['black']
+		self.check_duration_start_time = 0
 
-	def time_and_run_duration(self):
+	def time_and_run_duration(self, debug_start_time_arg=None):
 		end_time = time.time()
-		formated_end_time = datetime.fromtimestamp(end_time).strftime('"%d-%b-%Y %H:%M:%S"')
-		run_duration_seconds = end_time - self.start_time
+		
+		if debug_start_time_arg == None:
+			run_duration_seconds = end_time - self.start_time
+			formated_end_time = datetime.fromtimestamp(end_time).strftime("%d-%b-%Y %H:%M:%S") + ' / '
+		else:
+			run_duration_seconds = end_time - debug_start_time_arg
+			formated_end_time = ''
 		run_duration = str(timedelta(seconds=int(run_duration_seconds))) # Convert to hh:mm:ss format
-		return formated_end_time + ' / ' + run_duration
+		
+		return formated_end_time + run_duration
 	
 	def open_log_file(self, log_file_name):
 		if log_file_name:
@@ -193,13 +200,21 @@ class my_logging:
 		elif self.err_level == 'S':
 			msg_prefix = '>>>Statistics'
 			msg_newline_before = True
+		elif self.err_level == 'D-S':
+			msg_prefix = '>>>Debugging, Duration-Check-Start'
+			self.check_duration_start_time = time.time()
+		elif self.err_level == 'D-E':
+			time_stamp_duration = self.time_and_run_duration(self.check_duration_start_time)
+			msg_prefix = '>>>Debugging, Duration-Check-End>> ' + time_stamp_duration
 		
 		if msg_newline_before: self.print_terminal_log()
 		if self.err_level == 'A':
 			self.print_terminal_log('>>>Action - User to take an action...')
 			prefix_length = 2
 			msg_prefix = ''
-		if msg_prefix != '':
+		if self.err_level == 'D-E':
+			pass  #do not set the msg_prefix in this case
+		elif msg_prefix != '':
 			time_stamp_duration = self.time_and_run_duration()
 			msg_prefix = msg_prefix + ' (Time/RunDuration ' + time_stamp_duration + ') '
 		self.print_terminal_log(f'{msg_prefix:<{prefix_length}}{self.delimiter1:<{self.delimiter1_len}} {self.msg_text}')  #
@@ -208,9 +223,7 @@ class my_logging:
 			self.validation_command()
 			self.print_terminal_log()
 		if self.err_level == 'S': self.print_msg_statistics()
-		if self.err_level == 'F':
-			#self.print_msg_statistics()
-			self.stop_program_msg('Y')
+		if self.err_level == 'F': self.stop_program_msg('Y')
 			
 
 if __name__ == '__main__':
