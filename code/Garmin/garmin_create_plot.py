@@ -82,7 +82,17 @@ ax2.tick_params(axis='y', labelcolor='green')
 # Add a legend
 fig.legend(loc='upper right', bbox_to_anchor=(1, 1), bbox_transform=ax1.transAxes)
 
-# Improve layout
-plt.title('Activity Data Visualization')
-plt.tight_layout()
+# Add the title to the left side of the y-axis
+fig.text(
+	0.02, 0.5,  # Position: 0.02 (x), 0.5 (y) in figure coordinates
+	'Activity Data Visualization',  # Text content
+	rotation='vertical',  # Rotate the text
+	va='center',  # Vertical alignment
+	ha='center',  # Horizontal alignment
+	fontsize=12,  # Optional: Adjust the font size
+)
+# Adjust the layout to provide space for the left-side title
+plt.subplots_adjust(left=0.1)  # Increase the left margin
+#plt.title('Activity Data Visualization')
+#plt.tight_layout()
 plt.show()
