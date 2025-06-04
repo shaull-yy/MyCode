@@ -286,8 +286,10 @@ activities = client.get_activities(0, activities_count)  # Retrieve the last X a
 loging.print_message('I', 'Fetching Garmin Data ended successfully')
 
 # Iterate over activities, create the all_raw_trans_df data frame
+loging.print_message('D-S', 'Checking loop on "activities" ')
 for activity in activities:
 	all_raw_trans_df = upd_split_info(activity, all_raw_trans_df)
+loging.print_message('D-E', 'End Checking loop on "activities" ')
 
 all_raw_trans_df['activity_intervals_ind'] = all_raw_trans_df['activity_name'].apply(
 	lambda x: 'No-Intervals' if 'run free' in x.lower() else 'Intervals')
