@@ -256,6 +256,7 @@ garmin_activ_db_file_name = basic_oper.get('garmin_activ_db_file_name')
 garmin_activities_plot = basic_oper.get('garmin_activities_plot')
 #del basic_oper
 
+# Pop up window to get number of activities to extarct & some other arguments
 activities_count, upd_garmin_db, clean_up_files = get_activities_count(default_activities_count)
 activities_count = int(activities_count)
 loging.print_message('I',f'Number of activities to extarct from Garmin: {activities_count}')
